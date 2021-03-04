@@ -69,8 +69,8 @@ Graph readGraph()
 {
     FILE *in_file = fopen("input.txt", "r");
 
-    int E = 0;
-    fscanf(in_file, "%d", &E);
+    int E,V = 0;
+    fscanf(in_file, "%d %d", &E,&V);
     int** edges = readEdgeList(in_file, E);
     fclose(in_file);
 

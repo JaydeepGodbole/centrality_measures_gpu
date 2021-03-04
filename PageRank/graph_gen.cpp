@@ -18,7 +18,7 @@ int main()
     vector<set<int>> adj(V);
 
     if (choice) { // directed graph (assume outdegree!=0)
-        cout << E << '\n';
+        cout << E << " "<< V<<'\n';
         assert(E >= V);
         for (int u=0; u<V; u++) {
             int v = rand() % V;
@@ -31,7 +31,7 @@ int main()
         }
     }
     else { // undirected graph
-        cout << 2*E << '\n';
+        cout << 2*E << " "<<V<<'\n';
     }
 
     while (E--) {

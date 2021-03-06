@@ -253,8 +253,8 @@ int main(){
     Graph* G = readgraph(input_file);
 
     initialisePageRank(G);
-    int blocksPerGrid = 4;
-    int threadsPerBlock = 4;
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (G->N+threadsPerBlock-1)/threadsPerBlock;
     PageRank(G,10000,df,blocksPerGrid,threadsPerBlock);
     cout<<"PageRank calculation done!!"<<endl;
 

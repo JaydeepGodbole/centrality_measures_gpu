@@ -1,23 +1,27 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <iostream>
 #include<vector>
 #include<utility>
 #include<algorithm>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <cstdio>
+#include <fstream>
 
 using namespace std;
-
-
 
 float df = 0.85f;
 
 struct Graph{
     int N; // number of nodes
+    int countSink; //number of sink nodes
     int E;
     int *ptrarray;
-    int *adjListArray;
+    int *sinkArray; //sink nodes
+    int *adjListArray;  // adjacency list of transposed graph
     int *outdegree; // contains outdegree of all nodes
+    int *indegree; //contains indegree of all nodes
     float *pr; // page rank values
 };
 
@@ -30,21 +34,40 @@ Graph* buildGraph(vector<pair<int,int>>& edges, int E,int V)
     G->ptrarray = new int[V+1];
     G->adjListArray = new int[E]; 
     G-> outdegree = new int[V]();
-    G->pr = new float[V]; 
+    G-> indegree = new int[V]();
+    G->pr = new float[V];
 
     
     sort(edges.begin(),edges.end(),[](pair<int,int>& e1,pair<int,int>& e2){
-        return (e1.first==e2.first)? (e1.second<e2.second): (e1.first<e2.first);
+        return (e1.second==e2.second)? (e1.first<e2.first): (e1.second<e2.second);
     });
+ 
     for(int i=0;i<E;i++){
-        G->adjListArray[i] = edges[i].second;
+        G->adjListArray[i] = edges[i].first;
         G->outdegree[edges[i].first]++;
+        G->indegree[edges[i].second]++;
     }
-
+ 
     int x=0;
+    int count = 0;
     for(int i=0;i<=V;i++){
         G->ptrarray[i] = x;
-        if(i<V) x+= G->outdegree[i];
+        if (i<V){
+            x+= G->indegree[i];
+            if (G->outdegree[i] == 0){
+                count += 1;
+            }
+        }
+    }
+
+    G-> countSink = count;
+    G-> sinkArray = new int[count]();
+    x = 0;
+    for( int i = 0; i < V; i++){
+        if (G->outdegree[i] == 0){
+            G-> sinkArray[x] = i;
+            x+= 1;
+        }
     }
     
     return G;
@@ -87,8 +110,8 @@ void initialisePageRank(Graph *graph)
 }
 
 
-__global__ void  UpdatePagerank(const int* ptrArray,const int* adjListArray, 
-                                const float* oldpr, float* newpr,int N, float df){
+__global__ void  UpdatePagerank(const int* ptrArray,const int* outdegreeArray, const int* sinkArray,const int* adjListArray, 
+                                const float* oldpr, float* newpr,int N, float df, int countSink){
 
     int idx = blockIdx.x*blockDim.x + threadIdx.x;
 
@@ -96,8 +119,16 @@ __global__ void  UpdatePagerank(const int* ptrArray,const int* adjListArray,
         float sum = 0;
         for(int w=ptrArray[idx];w<ptrArray[idx+1];w++){
             int wId = adjListArray[w];
-            int wOutDegree = ptrArray[wId+1]-ptrArray[wId];
+            if (w == ptrArray[idx+1])   //indegree = 0
+            break;
+            int wOutDegree = outdegreeArray[wId];
             sum += oldpr[wId]/wOutDegree;
+        }
+
+        //Add page rank contributed by all sink nodes
+        for(int i=0; i<countSink; i++){
+            int wId = sinkArray[i];
+            sum+= oldpr[wId]/N;
         }
         newpr[idx] = (df*sum) + (1-df)/N;
         idx += gridDim.x*blockDim.x;
@@ -115,6 +146,24 @@ void PageRank(Graph* G,int iter,float df,int blocksPerGrid,int threadsPerBlock){
     //Allocate the device ptrArray
     int* d_ptrArray = NULL;
     err = cudaMalloc((int **)&d_ptrArray, (G->N+1)*sizeof(int));
+    if (err != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to allocate device vector ptrArray (error code %s)!\n", cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
+    //Allocate the device ptrArray
+    int* d_outdegreeArray = NULL;
+    err = cudaMalloc((int **)&d_outdegreeArray, (G->N)*sizeof(int));
+    if (err != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to allocate device vector outdegreeArray (error code %s)!\n", cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
+    //Allocate the device sinkArray
+    int* d_sinkArray = NULL;
+    err = cudaMalloc((int **)&d_sinkArray, G->countSink * sizeof(int));
     if (err != cudaSuccess)
     {
         fprintf(stderr, "Failed to allocate device vector ptrArray (error code %s)!\n", cudaGetErrorString(err));
@@ -158,6 +207,20 @@ void PageRank(Graph* G,int iter,float df,int blocksPerGrid,int threadsPerBlock){
         exit(EXIT_FAILURE);
     }
 
+    err = cudaMemcpy(d_outdegreeArray, G->outdegree, (G->N)*sizeof(int), cudaMemcpyHostToDevice);
+    if (err != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to copy vector outdegree from host to device (error code %s)!\n", cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
+    err = cudaMemcpy(d_sinkArray, G->sinkArray, G->countSink * sizeof(int), cudaMemcpyHostToDevice);
+    if (err != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to copy vector sinkArray from host to device (error code %s)!\n", cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
     err = cudaMemcpy(d_adjListArray, G->adjListArray,  G->E*sizeof(int), cudaMemcpyHostToDevice);
     if (err != cudaSuccess)
     {
@@ -179,8 +242,8 @@ void PageRank(Graph* G,int iter,float df,int blocksPerGrid,int threadsPerBlock){
     
     while(iter--){
         // Launch the PageRank Update CUDA Kernel
-        UpdatePagerank<<<grid, block>>>(d_ptrArray, d_adjListArray, d_oldpr, 
-                                        d_newpr,G->N,df);
+        UpdatePagerank<<<grid, block>>>(d_ptrArray, d_outdegreeArray, d_sinkArray, d_adjListArray, d_oldpr, 
+                                        d_newpr,G->N,df, G->countSink);
         err = cudaGetLastError();
         if (err != cudaSuccess)
         {
@@ -196,8 +259,6 @@ void PageRank(Graph* G,int iter,float df,int blocksPerGrid,int threadsPerBlock){
             exit(EXIT_FAILURE);
         }
     }
-
-
 
     err = cudaMemcpy(G->pr,d_oldpr,G->N*sizeof(float),cudaMemcpyDeviceToHost);
     if (err != cudaSuccess)
@@ -251,7 +312,6 @@ int main(){
     char input_file[] = "input.txt";
     char output_file[] = "nodeCentric_output.txt";
     Graph* G = readgraph(input_file);
-
     initialisePageRank(G);
     int threadsPerBlock = 256;
     int blocksPerGrid = (G->N+threadsPerBlock-1)/threadsPerBlock;

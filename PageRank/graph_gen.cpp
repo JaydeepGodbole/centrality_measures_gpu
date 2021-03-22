@@ -1,3 +1,4 @@
+
 #include <bits/stdc++.h>
 using namespace std;
 #define fastIO ios_base::sync_with_stdio(false);cin.tie(NULL);cout.tie(NULL)
@@ -17,18 +18,8 @@ int main()
     vector<pair<int,int>> edges;
     vector<set<int>> adj(V);
 
-    if (choice) { // directed graph (assume outdegree!=0)
+    if (choice) { // directed graph
         cout << E << " "<< V<<'\n';
-        assert(E >= V);
-        for (int u=0; u<V; u++) {
-            int v = rand() % V;
-            while (u == v) {
-                v = rand() % V;
-            }
-            adj[u].insert(v);
-            edges.push_back({u,v});
-            E--;
-        }
     }
     else { // undirected graph
         cout << 2*E << " "<<V<<'\n';

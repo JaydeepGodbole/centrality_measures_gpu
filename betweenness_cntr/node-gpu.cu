@@ -4,13 +4,13 @@
 
 using namespace std;
 
-void addEdge(int **adj, int u, int v)
+void addEdge(int *adj, int u, int v)
 {
-    adj[u][v] = 1;
-    adj[v][u] = 1;
+    adj[u*5+v] = 1;
+    adj[v*5+u] = 1;
 }
 
-void printGraph(int **adj, int V)
+void printGraph(int *adj, int V)
 {
     for (int v = 0; v < V; ++v)
     {
@@ -18,7 +18,7 @@ void printGraph(int **adj, int V)
              << v << "\n head ";
         for (int i = 0; i<V;i++)
         {   
-            if(adj[v][i]==1)
+            if(adj[v*V+i]==1)
             {
                 cout << "-> " << i;
             }
@@ -88,7 +88,7 @@ __device__ ls *qpop(ls *q)
 }
 
 
-__global__ void bfs(int src, int dest, int **adj, int v,
+__device__ void bfs(int src, int dest, int *adj, int v,
          int *pred, int *dist, int *val)
 {
     //list<int> queue;
@@ -115,14 +115,14 @@ __global__ void bfs(int src, int dest, int **adj, int v,
         queue = qpop(queue);
         for (int j = 0; j < v; j++) 
         {
-            if (visited[adj[u][j]] == false) 
+            if (visited[adj[u*v+j]] == false) 
             {   
-                visited[adj[u][j]] = true;
-                dist[adj[u][j]] = dist[u] + 1;
-                pred[adj[u][j]] = u;
-                queue = pushq(queue,adj[u][j]);
+                visited[adj[u*v+j]] = true;
+                dist[adj[u*v+j]] = dist[u] + 1;
+                pred[adj[u*v+j]] = u;
+                queue = pushq(queue,adj[u*v+j]);
 
-                if (adj[u][j] == dest)
+                if (adj[u*v+j] == dest)
                 {
                     *val = 1;
                     free(queue);
@@ -138,7 +138,7 @@ __global__ void bfs(int src, int dest, int **adj, int v,
     return;// false;
 }
  
-__global__ void sd(int **adj, int *score, int v)
+__global__ void sd(int *adj, int *score, int v)
 {
     int th = blockDim.x * blockIdx.x + threadIdx.x;
     
@@ -146,7 +146,7 @@ __global__ void sd(int **adj, int *score, int v)
     // {
     //     score[th] += 1; 
     // }
-
+    //printf("%d\n", adj[0]);
     if(th<v)
     {
     	for(int j=0;j<v;j++)
@@ -160,94 +160,45 @@ __global__ void sd(int **adj, int *score, int v)
 		    int x = 0;
 		    val = &x;
             //printf("Hi\n");
-		 	//bfs(th, j, adj, v, pred, dist, val);
-
-            ls *queue = NULL;
-            
-            int src = th;
-            int dest = j;
-
-            bool *visited;
-            visited = (bool*)malloc(v*sizeof(bool));
-
-            for (int i = 0; i < v; i++) {
-                visited[i] = false;
-                dist[i] = INT_MAX;
-                pred[i] = -1;
-            }   
-         
-            visited[src] = true;
-            dist[src] = 0;
-            queue = pushq(queue,src);
-            printf("Hi \n");
-            //standard BFS algorithm
-            while (queue!=NULL) {
-                int u = qfront(queue);
-                printf("u value %d\n", adj[0][0]);
-                queue = qpop(queue);
-                for (int j = 0; j < v; j++) 
-                {
-                    if (visited[adj[u][j]] == false) 
-                    {       
-
-                        // visited[adj[u][j]] = true;
-                        // dist[adj[u][j]] = dist[u] + 1;
-                        // pred[adj[u][j]] = u;
-                        // queue = pushq(queue,adj[u][j]);
-
-                        // if (adj[u][j] == dest)
-                        // {
-                        //     *val = 1;
-                        //     free(queue);
-                        //     //return;// true;
-                        // }
-                    }
-                }
-                //break;
-            }
-            *val = 0;
-            // free(visited);
-            // free(queue);
-
+		 	bfs(th, j, adj, v, pred, dist, val);
 		    if (*val == 0) 
 		    {
 		        break;
 		    }
-		    //break;
 		    // vector path stores the shortest path
-		    // int *path;
-      //       path = (int*)malloc(v*sizeof(int));
-      //       for(int i=0;i<v;i++)
-      //       {
-      //           path[i] = -1;
-      //       }
-		    // int crawl = j;
-		    // path[0] = crawl;
-      //       int pval = 1;
-		    // while (pred[crawl] != -1) {
-		    //     path[pval] = pred[crawl];
-      //           pval += 1;
-		    //     crawl = pred[crawl];
-		    // }
-		    // int flag = 0;
-		    // for (int i = v-1; i >= 0; i--)
-		    // {
-		    //     //cout << path[i] << " ";
-      //           if(path[i]!=-1)
-      //           {      
-      //               if(flag==0)
-      //               {
-      //                   flag = 1;
-      //                   continue;
-      //               }
+		    int *path;
+            path = (int*)malloc(v*sizeof(int));
+            for(int i=0;i<v;i++)
+            {
+                path[i] = -1;
+            }
+		    int crawl = j;
+		    path[0] = crawl;
+            int pval = 1;
+		    while (pred[crawl] != -1) {
+		        path[pval] = pred[crawl];
+                pval += 1;
+		        crawl = pred[crawl];
+		    }
+		    int flag = 0;
+		    for (int i = v-1; i >= 0; i--)
+		    {
+		        //cout << path[i] << " ";
+                if(path[i]!=-1)
+                {      
+                    if(flag==0)
+                    {
+                        flag = 1;
+                        continue;
+                    }
 
-      //               score[path[i]] += 1;
-      //           }
+                    score[path[i]] += 1;
+                }
 		    	
-		    // }
-      //       free(path);
-      //       free(pred);
-      //       free(dist);
+		    }
+            free(path);
+            free(pred);
+            free(dist);
 		}
 	}
 
@@ -260,18 +211,18 @@ int main()
 {
     int V = 5;
     //vector<int> adj[V];
-    int **adj;
-    adj = (int**)malloc(V*sizeof(int*));
-    for(int i=0;i<V;i++)
-    {
-        adj[i] = (int*)malloc(V*sizeof(int));
-    }
+    int *adj;
+    adj = (int*)malloc(V*V*sizeof(int));
+    // for(int i=0;i<V;i++)
+    // {
+    //     adj[i] = (int*)malloc(V*sizeof(int));
+    // }
 
     for(int i=0;i<V;i++)
     {
         for(int j=0;j<V;j++)
         {
-            adj[i][j] = 0;
+            adj[i*V+j] = 0;
         }
 
     }    
@@ -310,16 +261,16 @@ int main()
     cudaError_t err = cudaSuccess;
 
     size_t size = V*sizeof(float);//+ V*sizeof(adj[0][0]);
-    printf("size %d", size);
+    //printf("size %d", size);
 	
     //int **adj_A = (int **)malloc(V);
     // for(int i =0;i<V;i++)
     // {
 
     // }
-    int **adj_A;
+    int *adj_A;
 
-    err = cudaMalloc((void ***)&adj_A,V*V*sizeof(int));
+    err = cudaMalloc((void **)&adj_A,V*V*sizeof(int));
 
     if (err != cudaSuccess)
     {
@@ -355,7 +306,7 @@ int main()
     }
 
 
-    int threadsPerBlock = 1;
+    int threadsPerBlock = 5;
     int blocksPerGrid = 1;//(numElements + threadsPerBlock - 1) / threadsPerBlock;
     printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
     sd<<<blocksPerGrid, threadsPerBlock>>>(adj_A, score_A, V);

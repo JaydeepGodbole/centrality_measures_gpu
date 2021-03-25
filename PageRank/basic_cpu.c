@@ -6,16 +6,13 @@ float df = 0.85f;
 
 typedef struct _Graph {
     int N; // number of nodes
-    int **adj; // adjacency list
+    int count_sink; //number of sink nodes
+    int **adj; // adjacency list of transposed graph
     int *outdegree; // contains outdegree of all nodes
+    int *indegree; //contains indegree of all nodes
+    int *sinks; //sink nodes
     float *pr; // page rank values
 } Graph;
-
-// Finds max of 2 integers
-int max(int a, int b)
-{
-    return (a>b)? a : b;
-}
 
 // Reads a 2D array of size (E*2) from the given file and returns it
 int** readEdgeList(FILE *file, int E)
@@ -25,43 +22,57 @@ int** readEdgeList(FILE *file, int E)
         edges[i] = (int*)malloc(2 * sizeof(int));
         fscanf(file, "%d %d", &edges[i][0], &edges[i][1]);
     }
-
     return edges;
 }
 
 // Builds adjacency list from edge list and stores it in adj
-// Stores the outdegree of each node in array outdegree
-// Returns the number of nodes in the graph
-int edgeListToAdjacencyList(int **edges, int E, int ***adj, int **outdegree)
+// Stores the outdegree and indegree of each node in arrays outdegree and indegree respectively
+// Stores sink nodes in array sinks
+void edgeListToAdjacencyList(int **edges, int E, int V, int *count_sink, int ***adj, int **outdegree, int **indegree, int **sinks)
 {
-    int N = 0;
-    for (int i=0; i<E; i++) {
-        N = max(N, max(edges[i][0]+1, edges[i][1]+1));
-    }
+    int N = V;
 
     *adj = (int**)malloc(N * sizeof(int*));
     *outdegree = (int*)malloc(N * sizeof(int));
-    int* temp_outdegree = (int*)malloc(N * sizeof(int));
+    *indegree = (int*)malloc(N * sizeof(int));
+    int* temp_indegree = (int*)malloc(N * sizeof(int));
 
     for (int i=0; i<N; i++) {
         (*outdegree)[i] = 0;
-        temp_outdegree[i] = 0;
+        (*indegree)[i] = 0;
+        temp_indegree[i] = 0;
     }
     for (int i=0; i<E; i++) {
         (*outdegree)[edges[i][0]]++;
-        temp_outdegree[edges[i][0]]++;
+        (*indegree)[edges[i][1]]++;
+        temp_indegree[edges[i][1]]++;
+    }
+ 
+    for (int i=0; i<N; i++){
+        if ((*outdegree)[i] == 0){
+            (*count_sink) += 1;
+        }
+    }
+ 
+    *sinks = (int*)malloc((*count_sink)*sizeof(int));
+  
+    int x = 0;
+    for (int i=0; i<N; i++){
+        if ((*outdegree)[i] == 0){
+            (*sinks)[x] = i;
+            x+=1;
+        }
     }
 
     for (int i=0; i<N; i++) {
-        (*adj)[i] = (int*)malloc((*outdegree)[i] * sizeof(int));
+        (*adj)[i] = (int*)malloc((*indegree)[i] * sizeof(int));
     }
     for (int i=0; i<E; i++) {
         int u = edges[i][0];
         int v = edges[i][1];
-        (*adj)[u][--temp_outdegree[u]] = v;
+        (*adj)[v][--temp_indegree[v]] = u;
     }
-
-    return N;
+    return;
 }
 
 // Reads graph from input.txt stored as edge list and returns Graph structure
@@ -71,16 +82,24 @@ Graph readGraph()
 
     int E,V = 0;
     fscanf(in_file, "%d %d", &E,&V);
+    printf("Edges = %d, Vertices = %d\n", E, V);
     int** edges = readEdgeList(in_file, E);
     fclose(in_file);
-
+ 
     int** adj_list = NULL;
     int* out_list = NULL;
+    int* in_list = NULL;
+    int* sink_list = NULL;
+    int sink_int = 0;
 
     Graph graph;
-    graph.N = edgeListToAdjacencyList(edges, E, &adj_list, &out_list);
+    graph.N = V;
+    edgeListToAdjacencyList(edges, E, V, &sink_int, &adj_list, &out_list, &in_list, &sink_list);
+    graph.count_sink = sink_int;
     graph.adj = adj_list;
     graph.outdegree = out_list;
+    graph.indegree = in_list;
+    graph.sinks = sink_list;
 
     return graph;
 }
@@ -96,7 +115,7 @@ void initialisePageRank(Graph *graph)
 }
 
 // Calculates the page rank values of the given Graph structure for 1 iteration
-void calculatePageRankOnce(Graph *graph) 
+float calculatePageRankOnce(Graph *graph) 
 {
     float *old_pr = (float*)malloc(graph->N * sizeof(float));
     for (int i=0; i<graph->N; i++) {
@@ -105,20 +124,35 @@ void calculatePageRankOnce(Graph *graph)
 
     for (int i=0; i<graph->N; i++) {
         graph->pr[i] = 0.0f;
-        for (int j=0; j<graph->outdegree[i]; j++) {
+        for (int j=0; j<graph->indegree[i]; j++) {
             int w = graph->adj[i][j];
             graph->pr[i] += df * old_pr[w]/(float)graph->outdegree[w];
         }
+
+        //Add PageRank ontributed by all sink nodes
+        for (int j=0; j<graph->count_sink; j++){
+            graph->pr[i] += df * old_pr[graph->sinks[j]]/(float)graph->N;
+        }
         graph->pr[i] += (1-df)/(float)graph->N;
     }
+
+    float error = 0.0;
+	for(int i=0; i<graph->N; i++){
+	    error =  error + fabs(graph->pr[i] - old_pr[i]);
+	}
     free(old_pr);
+    return (error);
 }   
 
 // Calculates the page rank values of the given Graph structure for given number of iterations
 void calculatePageRank(Graph *graph, int iter)
 {
+    float error = 0.0;
     while (iter--) {
-        calculatePageRankOnce(graph);
+        error = calculatePageRankOnce(graph);
+        if (error < 0.000001){
+	        break;
+        }
     }
 }
 
@@ -136,10 +170,11 @@ void storePageRank(Graph *graph)
 void printGraph(Graph *graph)
 {
     printf("Nodes = %d\n", graph->N);
+    printf("Sink Nodes = %d\n", graph->count_sink);
 
     for (int i=0; i<graph->N; i++) {
-        printf("%d -> ", i);
-        for (int j=0; j<graph->outdegree[i]; j++) {
+        printf("%d <- ", i);
+        for (int j=0; j<graph->indegree[i]; j++) {
             printf("%d ", graph->adj[i][j]);
         }
         printf("\n");
@@ -150,8 +185,7 @@ int main()
 {
     Graph graph = readGraph();
     printGraph(&graph);
-
     initialisePageRank(&graph);
-    calculatePageRank(&graph, 100);
+    calculatePageRank(&graph, 10000);
     storePageRank(&graph);
 }

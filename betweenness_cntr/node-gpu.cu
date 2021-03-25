@@ -4,10 +4,10 @@
 
 using namespace std;
 
-void addEdge(int *adj, int u, int v)
+void addEdge(int *adj, int u, int v, int t)
 {
-    adj[u*5+v] = 1;
-    adj[v*5+u] = 1;
+    adj[u*t+v] = 1;
+    adj[v*t+u] = 1;
 }
 
 void printGraph(int *adj, int V)
@@ -30,7 +30,7 @@ void printGraph(int *adj, int V)
 __device__ struct ls
 {   
     int value;
-    ls *next=NULL;
+    ls *next;
 };
 
 __device__ ls *pushq(ls *q,int val)
@@ -40,8 +40,7 @@ __device__ ls *pushq(ls *q,int val)
     
     if(q==NULL)
     {       
-        
-        //temp->value = val;
+
         q = (ls*)malloc(sizeof(ls));
         q->value = val;
         q->next = NULL;
@@ -58,13 +57,10 @@ __device__ ls *pushq(ls *q,int val)
         temp->value = val;
         temp->next = NULL;
         q->next = temp;
-        //q = q->next;
 
     }
-    //printf("Queue value : %d",q->value);
 
-    //free(temp);
-    return head;// head;
+    return head;
 }
 
 __device__ int qfront(ls *q)
@@ -91,8 +87,6 @@ __device__ ls *qpop(ls *q)
 __device__ void bfs(int src, int dest, int *adj, int v,
          int *pred, int *dist, int *val)
 {
-    //list<int> queue;
-
     ls *queue = NULL;
     
 
@@ -108,115 +102,124 @@ __device__ void bfs(int src, int dest, int *adj, int v,
     visited[src] = true;
     dist[src] = 0;
     queue = pushq(queue,src);
-    //printf("Hi \n");
+    
     // standard BFS algorithm
+    *val = 0;
     while (queue!=NULL) {
         int u = qfront(queue);
         queue = qpop(queue);
         for (int j = 0; j < v; j++) 
         {
-            if (visited[adj[u*v+j]] == false) 
+            if (visited[j] == false && adj[u*v+j]==1) 
             {   
-                visited[adj[u*v+j]] = true;
-                dist[adj[u*v+j]] = dist[u] + 1;
-                pred[adj[u*v+j]] = u;
-                queue = pushq(queue,adj[u*v+j]);
+                visited[j] = true;
+                dist[j] = dist[u] + 1;
+                pred[j] = u;
+                queue = pushq(queue,j);
 
-                if (adj[u*v+j] == dest)
+                if (j == dest)
                 {
                     *val = 1;
                     free(queue);
-                    return;// true;
+                    free(visited);
+                    return;
                 }
             }
         }
-        //break;
+        
     }
- 	*val = 0;
+    
     free(visited);
     free(queue);
-    return;// false;
+    return;
 }
- 
-__global__ void sd(int *adj, int *score, int v)
+
+__global__ void sd(int s, int *adj, int *score, int v)
 {
-    int th = blockDim.x * blockIdx.x + threadIdx.x;
-    
-    // if(th<v)
-    // {
-    //     score[th] += 1; 
-    // }
-    //printf("%d\n", adj[0]);
+    int th = blockDim.x * blockIdx.x + threadIdx.x ;
+
     if(th<v)
-    {
+    {   
+        //extern __shared__ int sc[];
+        //sc[th] = score[th];
+        __syncthreads();
+        //printf("%d",score[th]);
     	for(int j=0;j<v;j++)
-    	{
+    	{     
+            //if(th==249)
+                //printf("%d %d\n", th, j);
+            if(j!=th)
+            {   
+                int *pred, *dist;
+                pred = (int*)malloc(v*sizeof(int));
+                dist = (int*)malloc(v*sizeof(int));
 
-		    int *pred, *dist;
-            pred = (int*)malloc(v*sizeof(int));
-            dist = (int*)malloc(v*sizeof(int));
+                int *val;
+                int x = 0;
+                val = &x;
+                
+                bfs(th, j, adj, v, pred, dist, val);
 
-		    int *val;
-		    int x = 0;
-		    val = &x;
-            //printf("Hi\n");
-		 	bfs(th, j, adj, v, pred, dist, val);
-		    if (*val == 0) 
-		    {
-		        break;
-		    }
-		    // vector path stores the shortest path
-		    int *path;
-            path = (int*)malloc(v*sizeof(int));
-            for(int i=0;i<v;i++)
-            {
-                path[i] = -1;
-            }
-		    int crawl = j;
-		    path[0] = crawl;
-            int pval = 1;
-		    while (pred[crawl] != -1) {
-		        path[pval] = pred[crawl];
-                pval += 1;
-		        crawl = pred[crawl];
-		    }
-		    int flag = 0;
-		    for (int i = v-1; i >= 0; i--)
-		    {
-		        //cout << path[i] << " ";
-                if(path[i]!=-1)
-                {      
-                    if(flag==0)
-                    {
-                        flag = 1;
-                        continue;
-                    }
-
-                    score[path[i]] += 1;
+                if (*val == 0) 
+                {   
+                    free(pred);
+                    free(dist);
+                    continue;
                 }
-		    	
-		    }
-            free(path);
-            free(pred);
-            free(dist);
-		}
-	}
+                // vector path stores the shortest path
+                int *path;
+                path = (int*)malloc(v*sizeof(int));
+                for(int i=0;i<v;i++)
+                {
+                    path[i] = -1;
+                }
+                int crawl = j;
+                path[0] = crawl;
+                int pval = 1;
+                while (pred[crawl] != -1) 
+                {
+                    path[pval] = pred[crawl];
+                    pval += 1;
+                    crawl = pred[crawl];
+                }
+                int flag = 0;
+                
+                for (int i = v-1; i >= 1; i--)
+                {
+                    
+                    if(path[i]!=-1)
+                    {      
+                        if(flag==0)
+                        {
+                            flag = 1;
+                            continue;
+                        }
+                        atomicAdd(&score[path[i]],1);
+                        //sc[path[i]] += 1;
+                    }
+                    
+                }
 
-    //printf("Hi here %d\n", score[1]);
-    //__syncthreads();
+                free(path);
+                free(pred);
+                free(dist);
+            }
+
+		    
+		}
+
+        
+        //printf("%d",score[th]);// = sc[th];
+        __syncthreads();
+	}
 
 } 
 
 int main()
 {
-    int V = 5;
-    //vector<int> adj[V];
+    int V = 150;
     int *adj;
     adj = (int*)malloc(V*V*sizeof(int));
-    // for(int i=0;i<V;i++)
-    // {
-    //     adj[i] = (int*)malloc(V*sizeof(int));
-    // }
 
     for(int i=0;i<V;i++)
     {
@@ -227,13 +230,14 @@ int main()
 
     }    
  
-    addEdge(adj, 0, 1);
-    addEdge(adj, 0, 4);
-    addEdge(adj, 1, 2);
-    addEdge(adj, 1, 3);
-    addEdge(adj, 1, 4);
-    addEdge(adj, 2, 3);
-    addEdge(adj, 3, 4);
+    addEdge(adj, 0, 1, V);
+    addEdge(adj, 0, 4, V);
+    addEdge(adj, 1, 2, V);
+    addEdge(adj, 1, 3, V);
+    addEdge(adj, 1, 4, V);
+    addEdge(adj, 2, 3, V);
+    addEdge(adj, 3, 4, V);
+    //addEdge(adj, 0, 249, V);
     printGraph(adj, V);
     /* calculate betweenness centrality score using bfs */
 
@@ -242,33 +246,12 @@ int main()
     {
     	score[i] = 0;
     }
-   
-
- // 	for (int i = 0; i<V; i++)
- // 	{	
- // 		for(int j=0;j<V;j++)
- // 		{
- // 			sd(i,j,adj,V,score);
- // 		}
- // 	}   
-
- // 	for(int j=0;j<V;j++)
-	// {
-	// 	printf("The Score %f \n",(float(score[j])/(V*(V-1))));
-	// }
  	
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
 
-    size_t size = V*sizeof(float);//+ V*sizeof(adj[0][0]);
-    //printf("size %d", size);
-	
-    //int **adj_A = (int **)malloc(V);
-    // for(int i =0;i<V;i++)
-    // {
-
-    // }
     int *adj_A;
+    int *result = (int*)malloc(V*sizeof(int));
 
     err = cudaMalloc((void **)&adj_A,V*V*sizeof(int));
 
@@ -306,10 +289,11 @@ int main()
     }
 
 
-    int threadsPerBlock = 5;
-    int blocksPerGrid = 1;//(numElements + threadsPerBlock - 1) / threadsPerBlock;
+    int threadsPerBlock = 128;
+    int blocksPerGrid = ((V-1)/128)+1;//(numElements + threadsPerBlock - 1) / threadsPerBlock;
     printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
-    sd<<<blocksPerGrid, threadsPerBlock>>>(adj_A, score_A, V);
+
+    sd<<<blocksPerGrid, threadsPerBlock>>>(0,adj_A, score_A, V);
     err = cudaGetLastError();
 
     if (err != cudaSuccess)
@@ -318,18 +302,14 @@ int main()
         exit(EXIT_FAILURE);
     }
 
-    int *result = (int*)malloc(V*sizeof(int));
-
     printf("Copy output data from the CUDA device to the host memory\n");
     err = cudaMemcpy(result, score_A, V*sizeof(int), cudaMemcpyDeviceToHost);
 
     if (err != cudaSuccess)
     {
-        fprintf(stderr, "Failed to copy vector C from device to host (error code %s)!\n", cudaGetErrorString(err));
+        fprintf(stderr, "Failed to copy result from device to host (error code %s)!\n", cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
-
-
 
     err = cudaFree(adj_A);
     err = cudaFree(score_A);

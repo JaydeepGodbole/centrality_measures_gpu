@@ -74,7 +74,7 @@ __device__ ls *qpop(ls *q)
 {
     if(q!=NULL)
     {
-        ls *temp = (ls*)malloc(sizeof(ls));
+        ls *temp;// = (ls*)malloc(sizeof(ls));
         temp = q;
         q = q->next;
         free(temp);
@@ -84,22 +84,29 @@ __device__ ls *qpop(ls *q)
 }
 
 
-__device__ void bfs(int src, int dest, int *adj, int v,
+__device__ void bfs(int src, int dest,const int *adj,const int v,
          int *pred, int *dist, int *val)
 {
     ls *queue = NULL;
     
 
-    bool *visited;
-    visited = (bool*)malloc(v*sizeof(bool));
-
-    for (int i = 0; i < v; i++) {
-        visited[i] = false;
-        dist[i] = INT_MAX;
-        pred[i] = -1;
+    int *visited;
+    visited = (int*)malloc(v*sizeof(int));
+    if (visited == NULL) 
+    {
+        return;
     }
- 
-    visited[src] = true;
+
+    // for (int i = 0; i < v; i++) {
+    //     visited[i] = 0;
+    //     dist[i] = 1000;
+    //     pred[i] = -1;
+    // }
+    memset(visited, 0, v * sizeof(int));
+    memset(dist, 1000, v * sizeof(int));
+    memset(pred, -1, v * sizeof(int));
+
+    visited[src] = 1;
     dist[src] = 0;
     queue = pushq(queue,src);
     
@@ -108,11 +115,13 @@ __device__ void bfs(int src, int dest, int *adj, int v,
     while (queue!=NULL) {
         int u = qfront(queue);
         queue = qpop(queue);
+        //printf("%d\n",qfront(queue));
+        //break;
         for (int j = 0; j < v; j++) 
         {
-            if (visited[j] == false && adj[u*v+j]==1) 
+            if ((visited[j] == 0) && (adj[u*v+j]==1)) 
             {   
-                visited[j] = true;
+                visited[j] = 1;
                 dist[j] = dist[u] + 1;
                 pred[j] = u;
                 queue = pushq(queue,j);
@@ -134,25 +143,40 @@ __device__ void bfs(int src, int dest, int *adj, int v,
     return;
 }
 
-__global__ void sd(int s, int *adj, int *score, int v)
+__global__ void sd(int s,const int *adj, int *score,const int v)
 {
     int th = blockDim.x * blockIdx.x + threadIdx.x ;
 
     if(th<v)
-    {   
+    {       
+
         //extern __shared__ int sc[];
         //sc[th] = score[th];
         __syncthreads();
+
         //printf("%d",score[th]);
     	for(int j=0;j<v;j++)
     	{     
             //if(th==249)
                 //printf("%d %d\n", th, j);
+            // if(j%10==0)
+            // {
+            //     printf("Hi %d \t %d \t",th,j);
+            // }
             if(j!=th)
             {   
                 int *pred, *dist;
                 pred = (int*)malloc(v*sizeof(int));
                 dist = (int*)malloc(v*sizeof(int));
+
+                if (pred == NULL) 
+                {
+                    return;
+                }
+                if (dist == NULL) 
+                {
+                    return;
+                }
 
                 int *val;
                 int x = 0;
@@ -169,6 +193,10 @@ __global__ void sd(int s, int *adj, int *score, int v)
                 // vector path stores the shortest path
                 int *path;
                 path = (int*)malloc(v*sizeof(int));
+                if (path == NULL) 
+                {
+                    return;
+                }
                 for(int i=0;i<v;i++)
                 {
                     path[i] = -1;
@@ -195,6 +223,7 @@ __global__ void sd(int s, int *adj, int *score, int v)
                             continue;
                         }
                         atomicAdd(&score[path[i]],1);
+                        //score[path[i]] += 1;
                         //sc[path[i]] += 1;
                     }
                     
@@ -204,12 +233,12 @@ __global__ void sd(int s, int *adj, int *score, int v)
                 free(pred);
                 free(dist);
             }
-
+            
 		    
 		}
 
         
-        //printf("%d",score[th]);// = sc[th];
+        // = sc[th];
         __syncthreads();
 	}
 
@@ -217,7 +246,7 @@ __global__ void sd(int s, int *adj, int *score, int v)
 
 int main()
 {
-    int V = 150;
+    int V = 250;
     int *adj;
     adj = (int*)malloc(V*V*sizeof(int));
 
@@ -238,10 +267,11 @@ int main()
     addEdge(adj, 2, 3, V);
     addEdge(adj, 3, 4, V);
     //addEdge(adj, 0, 249, V);
-    printGraph(adj, V);
+    //printGraph(adj, V);
     /* calculate betweenness centrality score using bfs */
 
-    int score[V];
+    int *score;
+    score = (int*)malloc(V*sizeof(int));
     for (int i = 0; i < V; ++i)
     {
     	score[i] = 0;
@@ -289,8 +319,8 @@ int main()
     }
 
 
-    int threadsPerBlock = 128;
-    int blocksPerGrid = ((V-1)/128)+1;//(numElements + threadsPerBlock - 1) / threadsPerBlock;
+    int threadsPerBlock = 256;
+    int blocksPerGrid = ((V-1)/256)+1;//(numElements + threadsPerBlock - 1) / threadsPerBlock;
     printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
 
     sd<<<blocksPerGrid, threadsPerBlock>>>(0,adj_A, score_A, V);
@@ -315,7 +345,7 @@ int main()
     err = cudaFree(score_A);
 
 
-    for(int j=0;j<V;j++)
+    for(int j=0;j<10;j++)
     {
      printf("The Score %f \n",(float(result[j])/(V*(V-1))));
     }
@@ -327,6 +357,11 @@ int main()
         fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
         exit(EXIT_FAILURE);
     }
+
+    free(result);
+    free(score);
+    free(adj);
+
 
     return 0;
 }

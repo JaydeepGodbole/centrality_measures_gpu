@@ -1,0 +1,41 @@
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(155): error: no instance of overloaded function "atomicAdd" matches the argument list
+            argument types are: (float, float)
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(159): error: no instance of overloaded function "atomicAdd" matches the argument list
+            argument types are: (float, float)
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(307): error: no operator "<<" matches these operands
+            operand types are: void (float, float *, int) << dim3
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(307): warning: expression has no effect
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(307): warning: expression has no effect
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(307): error: no operator ">>" matches these operands
+            operand types are: dim3 >> int
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(312): error: no operator "<<" matches these operands
+            operand types are: void (const int *, const int *, const int *, const float *, float *, int, float, int) << dim3
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(312): warning: expression has no effect
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(312): warning: expression has no effect
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(312): warning: expression has no effect
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(312): warning: expression has no effect
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(312): warning: expression has no effect
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(312): warning: expression has no effect
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(312): warning: expression has no effect
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(312): error: no operator ">>" matches these operands
+            operand types are: dim3 >> int
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(397): error: too few arguments in function call
+
+/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu(407): warning: return type "int" omitted in declaration of function "main"
+
+7 errors detected in the compilation of "/tmp/tmpnn6x2uph/4061536c-dbfc-4cf2-a9fe-8b38a7e6f7a9.cu".

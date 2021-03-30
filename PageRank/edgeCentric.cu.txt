@@ -46,7 +46,7 @@ Graph* buildGraph(vector<pair<int,int>>& edges, int E,int V)
     G->edgeArray1 = new int[E];
     G->edgeArray2 = new int[E];
     //G->edgeArray = edges
-
+    //printf("V= %d, E = %d \n", V, E);
     
     sort(edges.begin(),edges.end(),[](pair<int,int>& e1,pair<int,int>& e2){
         return (e1.second==e2.second)? (e1.first<e2.first): (e1.second<e2.second);
@@ -60,6 +60,7 @@ Graph* buildGraph(vector<pair<int,int>>& edges, int E,int V)
         G->indegree[edges[i].second]++;
         G->edgeArray1[i] = edges[i].first;
         G->edgeArray2[i] = edges[i].second;
+        //printf("%d, %d \t", edges[i].first, edges[i].second);
     }
  
  
@@ -117,7 +118,7 @@ void storePageRank(Graph* graph,const char* file)
 }
 
 // Initialises the page rank values of the Graph structure to 1
-void initialisePageRank(Graph *graph, int *minpr)
+void initialisePageRank(Graph *graph)
 {
 
     for (int i=0; i<graph->N; i++) {
@@ -132,8 +133,9 @@ void initialisePageRank(Graph *graph, int *minpr)
 
 __global__ void  edge_centric_phase1(float minpr, float* newpr, int N){
     
-    //int idx = blockId.x * numThreads + threadId.x;
+
     int idx = blockIdx.x*blockDim.x + threadIdx.x;
+
 
     while (idx < N){
         newpr[idx] = minpr;
@@ -144,22 +146,23 @@ __global__ void  edge_centric_phase1(float minpr, float* newpr, int N){
 __global__ void edge_centric_phase2(const int* outdegreeArray, const int* edgeArray1, const int* edgeArray2, 
                                     const float* oldpr, float* newpr, int N, float df, int countSink){
     
-    //idx = blockId.x * numThreads + threadId.x;
+    
     int idx = blockIdx.x*blockDim.x + threadIdx.x;
 
     while (idx < N){
         int w = edgeArray1[idx];
         int v = edgeArray2[idx];
 
-        float arg1 = newpr[v];
+        float* arg1 = &newpr[v];
         float arg2 = df*oldpr[w]/outdegreeArray[w];
+        //printf("%f, %f", arg1, arg2);
         atomicAdd(arg1, arg2);
 
-        float arg3 = newpr[w];
+        float* arg3 = &newpr[w];
         float arg4 = df*oldpr[v]/outdegreeArray[v];
         atomicAdd(arg3, arg4);
 
-        //idx += numBlocks * numThreads;
+    
         idx += gridDim.x*blockDim.x;
     }  
 }
@@ -167,8 +170,10 @@ __global__ void edge_centric_phase2(const int* outdegreeArray, const int* edgeAr
 
 void PageRank_edge_centric(Graph* G,int iter,float df,int blocksPerGrid,int threadsPerBlock){
 
-    int min_pr = (1 - df)/G->N;
+    float min_pr = (1 - df)/G->N;
     cudaError_t err = cudaSuccess;
+    printf("\n%f, %d\n", df, G->N);
+    printf("\nmin_pr %f\n", min_pr);
 
     cout<<"Initialize arrays in device memory\n";
     
@@ -305,12 +310,12 @@ void PageRank_edge_centric(Graph* G,int iter,float df,int blocksPerGrid,int thre
     dim3 block(threadsPerBlock,1,1);
 
     
-    edge_centric_phase1<<grid, block>>(min_pr, d_newpr, G->N);
+    edge_centric_phase1<<<grid, block>>>(min_pr, d_newpr, G->N);
     
     while(iter--){
         // Launch the PageRank Update CUDA Kernel
                   
-        edge_centric_phase2<<grid, block>>(d_outdegreeArray, d_edgeArray1, d_edgeArray2, 
+        edge_centric_phase2<<<grid, block>>>(d_outdegreeArray, d_edgeArray1, d_edgeArray2, 
                                     d_oldpr, d_newpr, G->N, df, G->countSink);
         
         err = cudaGetLastError();
@@ -393,8 +398,8 @@ void PageRank_edge_centric(Graph* G,int iter,float df,int blocksPerGrid,int thre
 
 int main(){
     char input_file[] = "input.txt";
-    char output_file[] = "nodeCentric_output.txt";
-    Graph* G = readgraph(input_file);
+    char output_file[] = "edgeCentric_output.txt";
+    Graph* G = readgraph(input_file); 
     initialisePageRank(G);
     int threadsPerBlock = 256;
     int blocksPerGrid = (G->N+threadsPerBlock-1)/threadsPerBlock;
@@ -404,3 +409,4 @@ int main(){
     storePageRank(G,output_file);
     return 0;
 }
+

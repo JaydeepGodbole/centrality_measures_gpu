@@ -246,7 +246,7 @@ __global__ void sd(int s,const int *adj, int *score,const int v)
 
 int main()
 {
-    int V = 250;
+    int V = 5;
     int *adj;
     adj = (int*)malloc(V*V*sizeof(int));
 
@@ -345,7 +345,7 @@ int main()
     err = cudaFree(score_A);
 
 
-    for(int j=0;j<10;j++)
+    for(int j=0;j<V;j++)
     {
      printf("The Score %f \n",(float(result[j])/(V*(V-1))));
     }

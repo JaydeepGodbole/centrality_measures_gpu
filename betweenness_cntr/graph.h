@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <string.h>
 using namespace std;
 
 class Graph {
@@ -38,6 +39,30 @@ public:
 		cout<<"Enter the column adjacency list:\n";
 		for(int i=0; i<(2 * edgeCount); i++)
 			cin >> adjacencyList[i];
+	}
+
+	void readGraphfile(char* filename) {
+
+		// Reading in CSR format
+		ifstream myfile;
+	    myfile.open(filename);
+
+		myfile >> nodeCount >> edgeCount;
+
+		// Copy into compressed adjacency List
+		adjacencyListPointers = new int[nodeCount +1];
+		adjacencyList = new int[2 * edgeCount +1];
+
+		
+
+		for(int i=0; i<=nodeCount; i++) 
+			myfile >> adjacencyListPointers[i];
+
+		
+		for(int i=0; i<(2 * edgeCount); i++)
+			myfile >> adjacencyList[i];
+
+		myfile.close();
 	}
 
 	void convertToCOO() {

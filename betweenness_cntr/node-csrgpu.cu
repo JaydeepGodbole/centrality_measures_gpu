@@ -294,7 +294,7 @@ int main()
  	
     Graph g;
 
-    g.readGraph();
+    g.readGraphfile("graph_csr.txt");
     int *adjr,*adjc;
     adjr = g.getAdjacencyListPointers();
     adjc = g.getAdjacencyList();

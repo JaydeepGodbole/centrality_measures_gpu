@@ -12,12 +12,10 @@ void printGraph(int *adjr, int *adjc, int V)
 {
     for (int v = 1; v <= V; ++v)
     {
-        cout << "\n Adjacency list of vertex "
-             << v-1 << "\n head ";
+        cout<<"\n Adjacency list of vertex "<<(v-1)<<"\n head ";
         for (int i = adjr[v-1]; i<adjr[v];i++)
         {   
-            
-            cout << "-> " << adjc[i];
+            cout<<"-> "<<adjc[i];
             
         }
         printf("\n");
@@ -27,6 +25,7 @@ void printGraph(int *adjr, int *adjc, int V)
 void convert_csr(int *adj, int *adjr, int *adjc, int v)
 {   
     int sum = 0;
+    adjr[0] = 0;
     for(int i=0;i<v;i++)
     {   
         for(int j=0;j<v;j++)
@@ -45,7 +44,11 @@ void convert_csr(int *adj, int *adjr, int *adjc, int v)
 
 int main()
 {
-    int V = 5;
+    int V,E;
+    cout<<"Enter number of nodes :\n";
+    cin>>V;
+    cout<<"Enter number of edges :\n";
+    cin>>E;
     int *adj;
     adj = (int*)malloc(V*V*sizeof(int));
 
@@ -57,16 +60,20 @@ int main()
         }
 
     }    
- 
-    addEdge(adj, 0, 1, V);
-    addEdge(adj, 0, 4, V);
-    addEdge(adj, 1, 2, V);
-    addEdge(adj, 1, 3, V);
-    addEdge(adj, 1, 4, V);
-    addEdge(adj, 2, 3, V);
-    addEdge(adj, 3, 4, V);
-    
-    int E = 7;
+    int u,v;
+    char *filename = "as_733.txt";
+    ifstream file;
+    file.open(filename);
+
+    for(int i=0; i<E; i++)
+    {    
+        file>>u;
+        file>>v;
+        // cout<<u<<v<<" ";
+        addEdge(adj,u,v,V);
+    }
+
+    file.close();
 
     int *adjr, *adjc;
     adjr = new int[V+1];
@@ -77,7 +84,7 @@ int main()
     printGraph(adjr, adjc, V);
 
     ofstream myfile;
-    char *filename = "graph_csr.txt";
+    filename = "as_733_csr.txt";
     myfile.open (filename);
 
     myfile<<V<<endl;
@@ -95,8 +102,22 @@ int main()
 
     myfile.close();
 
+    free(adj);
+    free(adjr);
+    free(adjc);
 
-    // ifstream file;
+    return 0;
+}
+
+    // addEdge(adj, 0, 1, V);
+    // addEdge(adj, 0, 4, V);
+    // addEdge(adj, 1, 2, V);
+    // addEdge(adj, 1, 3, V);
+    // addEdge(adj, 1, 4, V);
+    // addEdge(adj, 2, 3, V);
+    // addEdge(adj, 3, 4, V);
+
+// ifstream file;
     // file.open(filename);
     // int nodeCount,edgeCount;
 
@@ -117,6 +138,3 @@ int main()
 
     // file.close();
     // printGraph(adjacencyListPointers, adjacencyList, V);
-
-    return 0;
-}

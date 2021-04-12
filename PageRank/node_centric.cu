@@ -4,10 +4,9 @@
 #include<vector>
 #include<utility>
 #include<algorithm>
-#include <cuda.h>
-#include <cuda_runtime.h>
 #include <cstdio>
 #include <fstream>
+#include "kernels/Nodecentric.h"
 
 using namespace std;
 
@@ -106,32 +105,6 @@ void initialisePageRank(Graph *graph)
 
     for (int i=0; i<graph->N; i++) {
         graph->pr[i] = 1.0f;
-    }
-}
-
-
-__global__ void  UpdatePagerank(const int* ptrArray,const int* outdegreeArray, const int* sinkArray,const int* adjListArray, 
-                                const float* oldpr, float* newpr,int N, float df, int countSink){
-
-    int idx = blockIdx.x*blockDim.x + threadIdx.x;
-
-    while(idx<N){
-        float sum = 0;
-        for(int w=ptrArray[idx];w<ptrArray[idx+1];w++){
-            int wId = adjListArray[w];
-            if (w == ptrArray[idx+1])   //indegree = 0
-            break;
-            int wOutDegree = outdegreeArray[wId];
-            sum += oldpr[wId]/wOutDegree;
-        }
-
-        //Add page rank contributed by all sink nodes
-        for(int i=0; i<countSink; i++){
-            int wId = sinkArray[i];
-            sum+= oldpr[wId]/N;
-        }
-        newpr[idx] = (df*sum) + (1-df)/N;
-        idx += gridDim.x*blockDim.x;
     }
 }
 
@@ -242,7 +215,7 @@ void PageRank(Graph* G,int iter,float df,int blocksPerGrid,int threadsPerBlock){
     
     while(iter--){
         // Launch the PageRank Update CUDA Kernel
-        UpdatePagerank<<<grid, block>>>(d_ptrArray, d_outdegreeArray, d_sinkArray, d_adjListArray, d_oldpr, 
+        Nodecentric<<<grid, block>>>(d_ptrArray, d_outdegreeArray, d_sinkArray, d_adjListArray, d_oldpr, 
                                         d_newpr,G->N,df, G->countSink);
         err = cudaGetLastError();
         if (err != cudaSuccess)
@@ -329,7 +302,7 @@ int main(){
     initialisePageRank(G);
     int threadsPerBlock = 256;
     int blocksPerGrid = (G->N+threadsPerBlock-1)/threadsPerBlock;
-    PageRank(G,1000,df,blocksPerGrid,threadsPerBlock);
+    PageRank(G,10000,df,blocksPerGrid,threadsPerBlock);
     cout<<"PageRank calculation done!!"<<endl;
 
     storePageRank(G,output_file);

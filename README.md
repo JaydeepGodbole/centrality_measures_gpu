@@ -28,6 +28,7 @@ For Executing work efficient and edge centric Betweenness Centrality code, pleas
  - Dataset
    - amazon.txt
    - facebook.txt
+ - Profiling - profiling report of all the 4 kernels on amazon dataset
  - node_centric.cu - Host code for PageRank using NodeCentric approach
  - edge_centric.cu - Host code for PageRank using EdgeCentric approach
  - edge_centric_optimized.cu - Host code for WorkEfficient implementation of PageRank using EdgeCentric

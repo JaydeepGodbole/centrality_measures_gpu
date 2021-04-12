@@ -6,8 +6,8 @@ The code is supposed to implement algorithms, namely Pagerank and Betweenness ce
 
 For Executing work efficient and edge centric Betweenness Centrality code, please follow the steps below:
 1. Login to the Gmail Account with the following credentials:
-   emailID: **eightsemprojects@gmail.com
-   password: **8thsemprojects
+   emailID: **eightsemprojects@gmail.com**
+   password: **8thsemprojects**
 2. Go to HP3 folder
 3. Go to Betweenness_Centrality folder
 4. Change Runtime type to GPU

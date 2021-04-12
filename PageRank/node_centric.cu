@@ -297,6 +297,20 @@ void PageRank(Graph* G,int iter,float df,int blocksPerGrid,int threadsPerBlock){
         exit(EXIT_FAILURE);
     }
 
+    err = cudaFree(d_outdegreeArray);
+    if (err != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to free device vector outdegreeArray (error code %s)!\n", cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
+    err = cudaFree(d_sinkArray);
+    if (err != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to free device vector sinkArray (error code %s)!\n", cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
     //Reset the device
     err = cudaDeviceReset();
     if (err != cudaSuccess)
@@ -315,7 +329,7 @@ int main(){
     initialisePageRank(G);
     int threadsPerBlock = 256;
     int blocksPerGrid = (G->N+threadsPerBlock-1)/threadsPerBlock;
-    PageRank(G,10000,df,blocksPerGrid,threadsPerBlock);
+    PageRank(G,1000,df,blocksPerGrid,threadsPerBlock);
     cout<<"PageRank calculation done!!"<<endl;
 
     storePageRank(G,output_file);

@@ -5,6 +5,22 @@ The code is supposed to implement algorithms, namely Pagerank and Betweenness ce
 
 
 ## Betweenness Centrality
+
+For executing the node centric Betweenness Centrality code, please follow the steps below : 
+1. Navigate to the code location
+```
+cd /location_of_code
+```
+2. Compile the code with nvcc
+```
+nvcc HP3_nodeCentricBC.cu -o node-centricBC
+```
+3. Execute the code by giving the location of the csr formatted graph
+```
+./node-centricBC name-of-graph-csr.txt
+```
+
+
 For Executing work efficient and edge centric Betweenness Centrality code, please follow the steps below:
 1. Login to the Gmail Account with the following credentials:
    emailID: **eightsemprojects@gmail.com**
